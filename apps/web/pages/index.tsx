@@ -20,27 +20,33 @@ type Item = {
   prompt: string;
   solutions: Solution[];
   tags: string[];
-  createdAt: string;
+  createdAt: string; // store as ISO string to avoid locale differences
 };
 
 const API = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4010';
 
 export default function Home(){
+  const [mounted, setMounted] = useState(false);          // <-- key: gate initial render
   const [language, setLanguage] = useState<Lang>('javascript');
   const [count, setCount] = useState<number>(1);
   const [current, setCurrent] = useState<Item|null>(null);
   const [batch, setBatch] = useState<Item[]|null>(null);
-  const [history, setHistory] = useState<Item[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try { return JSON.parse(localStorage.getItem('history') || '[]'); } catch { return []; }
-  });
+  const [history, setHistory] = useState<Item[]>([]);     // start empty on server and client
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState<string|null>(null);
   const [runOutputs, setRunOutputs] = useState<Record<string,string>>({});
 
+  // hydrate only after mount to avoid SSR/CSR mismatch
   useEffect(() => {
-    localStorage.setItem('history', JSON.stringify(history));
-  }, [history]);
+    try {
+      const raw = localStorage.getItem('history');
+      if (raw) setHistory(JSON.parse(raw));
+    } catch {}
+    setMounted(true);
+  }, []);
+  useEffect(() => {
+    if (mounted) localStorage.setItem('history', JSON.stringify(history));
+  }, [mounted, history]);
 
   async function generate(){
     setLoading(true);
@@ -85,6 +91,9 @@ export default function Home(){
   }
 
   const langs: Lang[] = ['javascript','typescript','python','java'];
+
+  // avoid hydration mismatch by not rendering UI until mounted
+  if (!mounted) return null;
 
   return (
     <main style={{maxWidth: 1200, margin:'24px auto', fontFamily:'Inter, system-ui, sans-serif'}}>
@@ -166,7 +175,8 @@ export default function Home(){
                 </div>
                 <button onClick={() => setCurrent(h)}>View</button>
               </div>
-              <small>{new Date(h.createdAt).toLocaleString()}</small>
+              {/* render deterministic date to avoid locale mismatch */}
+              <small>{new Date(h.createdAt).toISOString()}</small>
             </div>
           ))}
         </div>
