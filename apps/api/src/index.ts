@@ -4,7 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { z } from 'zod';
-import { SupportedLanguage, generate } from '@cs/shared';
+import { SupportedLanguage, generate, generateMany } from '@cs/shared';
 import { NodeVM } from 'vm2';
 
 const app = express();
@@ -19,16 +19,25 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.get('/languages', (_req, res) => res.json({ languages: SupportedLanguage.options }));
 
-const GenBody = z.object({ language: SupportedLanguage });
+const GenBody = z.object({
+  language: SupportedLanguage,
+  count: z.number().int().min(1).max(20).optional()
+});
 
 app.post('/generate', (req, res) => {
   const parsed = GenBody.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Invalid language' });
-  const payload = generate(parsed.data.language);
-  res.json(payload);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid input' });
+  const { language, count } = parsed.data;
+
+  if (count && count > 1) {
+    const list = generateMany(language, count);
+    return res.json({ items: list });
+  }
+  const one = generate(language);
+  return res.json(one);
 });
 
-// Execute runnable JS/TS code in a sandbox with sample input
+// Execute runnable JavaScript or TypeScript
 const RunBody = z.object({
   code: z.string(),
   language: z.enum(['javascript','typescript']),
@@ -52,10 +61,9 @@ app.post('/run', async (req, res) => {
 
     let userCode = code;
     if (language === 'typescript') {
-      // very small transform: strip TS types (naive). For real projects use ts-node in a separate process.
       userCode = code
-        .replace(/: *[A-Za-z_\[\]\<\>\|\?\s,]+/g, '')
-        .replace(/interface [\s\S]*?\{[\s\S]*?\}/g, '');
+        .replace(/: *[A-Za-z_\\[\\]\\<\\>\\|\\?\\s,]+/g, '')
+        .replace(/interface [\\s\\S]*?\\{[\\s\\S]*?\\}/g, '');
     }
 
     const wrapper = `
@@ -78,4 +86,4 @@ app.post('/run', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`API listening on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`API listening on http://

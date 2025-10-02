@@ -11,7 +11,7 @@ export interface Solution {
   timeComplexity: string;
   spaceComplexity: string;
   runnable?: boolean;
-  runnerInput?: any; // sample input to run
+  runnerInput?: any;
 }
 
 export interface QuestionPayload {
@@ -26,7 +26,7 @@ export interface QuestionPayload {
 
 export function uid(){ return Math.random().toString(36).slice(2,10); }
 
-// Library with runnable JavaScript/TypeScript solutions (include runnerInput)
+// Library with runnable JavaScript and TypeScript solutions
 export const Library = {
   "two-sum": {
     title: "Two Sum",
@@ -157,9 +157,13 @@ export const Library = {
   }
 } as const;
 
+export function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 export function generate(language: SupportedLanguage): QuestionPayload {
   const keys = Object.keys(Library) as (keyof typeof Library)[];
-  const k = keys[Math.floor(Math.random()*keys.length)];
+  const k = pick(keys);
   const meta = Library[k];
   const sols = (meta.code as any)[language] || [];
   return {
@@ -180,4 +184,34 @@ export function generate(language: SupportedLanguage): QuestionPayload {
     tags: meta.tags,
     createdAt: new Date().toISOString()
   };
+}
+
+export function generateMany(language: SupportedLanguage, count: number): QuestionPayload[] {
+  const n = Math.max(1, Math.min(20, Math.floor(count || 1)));
+  const keys = Object.keys(Library) as (keyof typeof Library)[];
+  const out: QuestionPayload[] = [];
+  for (let i = 0; i < n; i++) {
+    const k = keys[i % keys.length];
+    const meta = Library[k];
+    const sols = (meta.code as any)[language] || [];
+    out.push({
+      id: uid(),
+      language,
+      title: meta.title,
+      prompt: meta.prompt,
+      solutions: sols.map((s: any) => ({
+        id: uid(),
+        title: s.title,
+        code: s.code,
+        approach: s.approach,
+        timeComplexity: s.timeComplexity,
+        spaceComplexity: s.spaceComplexity,
+        runnable: s.runnable || false,
+        runnerInput: s.runnerInput
+      })),
+      tags: meta.tags,
+      createdAt: new Date().toISOString()
+    });
+  }
+  return out;
 }
