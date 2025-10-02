@@ -1,99 +1,153 @@
-# Coding Sample Generator – Local First (Node + React + AWS-ready)
-
-## What this does
-1. Shows a **coding question and solutions side by side**.  
-2. **Language selector** (JavaScript, TypeScript, Python, Java).  
-3. **Refresh button** to generate a new sample.  
-4. **History preserved** locally (browser LocalStorage) and also available from the server in-memory during the session.  
-5. **Executable answers**: JavaScript and TypeScript solutions are runnable via a safe Node sandbox. The user sees actual output.
-
-> Local run requires **no AWS**. If you later want Amazon Web Services persistence (DynamoDB), see the notes near the end.
+Here is an updated README you can drop into `code-sample-gen-local/README.md`.
 
 ---
 
-## Tech stack
-- **API**: Node.js + Express + TypeScript  
-- **Client**: Next.js + React + TypeScript  
-- **Sandbox**: vm2 for safe JavaScript execution in the server  
-- **Shared**: A tiny library of questions and multi-solution templates
+Coding Sample Generator – Local First (Node + React + AWS ready)
 
----
+What this app does
 
-## Run locally (step-by-step)
-1. Install Node.js 18+ and pnpm  
-2. Unzip the project and open a terminal in the folder
-3. Copy environment file
-   ```bash
-   cp .env.example .env
-   ```
-4. Install dependencies
-   ```bash
-   pnpm install
-   ```
-5. Start both API and Web in dev mode
-   ```bash
-   pnpm dev
-   ```
-6. Open the app: http://localhost:3000
+1. Shows a coding question with solutions side by side.
+2. Language dropdown: JavaScript, TypeScript, Python, Java.
+3. Refresh button to generate a new sample question and answers.
+4. History of generated questions is preserved locally in the browser.
+5. JavaScript and TypeScript answers are executable with a Run button and real output.
 
-**Default ports**  
-- API: `http://localhost:4010`  
-- Web: `http://localhost:3000`
+Tech stack
 
-If you need to change the API port, edit `PORT` in `.env` and also set `NEXT_PUBLIC_API_BASE` to match.
+* API: Node.js, Express, TypeScript
+* Client: Next.js, React, TypeScript
+* Sandbox: vm2 for safe server side execution of JavaScript and TypeScript
+* Shared: question library and generators in a shared workspace package
+* Optional AWS: you can later back server history with Amazon DynamoDB, not required for local run
 
----
+Prerequisites
 
-## How it works
-- Click **Generate** (or Refresh). The app calls `POST /generate` with the selected language.  
-- The server returns a problem plus multiple solutions for that language, each with **time complexity** and **space complexity**, and (for JavaScript/TypeScript) a **sample input** and **runner** that can be executed.  
-- Click **Run** next to a JavaScript or TypeScript solution to see the output via `POST /run`.  
-- The **history** is saved in the browser so you can revisit items.
+* Node.js 20 LTS recommended
+* pnpm package manager
 
----
+  * best: corepack enable && corepack prepare pnpm@latest --activate
+  * or: npm install -g pnpm --location=global
 
-## Commands (root)
-```bash
-pnpm dev      # Run API and Web in parallel
-pnpm build    # Build all packages
-pnpm -r typecheck
-pnpm -r lint  # Lint if you add linters
-```
+Important note on Node.js versions
 
----
+* Node 22 can break vm2 based execution. Use Node 20 LTS for local dev.
+  nvm install 20
+  nvm use 20
+  node -v
 
-## Project layout
-```
-apps/
-  api/    # Express API (TypeScript)
-  web/    # Next.js web (TypeScript)
-packages/
-  shared/ # Questions library and generators
-```
+Clone or unzip
 
----
+* unzip the archive and open the folder in a terminal
+* cd code-sample-gen-local
 
-## Optional Amazon Web Services notes
-This project runs **entirely locally**. To persist history on the server using Amazon DynamoDB later:
-- Create a DynamoDB table with partition key `userId` and sort key `createdAt`.
-- Set `AWS_REGION` and `DDB_TABLE` in `.env`.
-- Extend `apps/api/src/index.ts` history handlers to use DynamoDB (sample code stub included as comments).
+Environment
 
----
+* copy the example file and adjust if you change ports
+  cp .env.example .env
+  default values
+  PORT=4010
+  NEXT_PUBLIC_API_BASE=[http://localhost:4010](http://localhost:4010)
 
-## Security
-- The `/run` endpoint uses **vm2** to execute JavaScript or TypeScript in a sandbox with a strict timeout and no network or file access.  
-- The API validates inputs with Zod.  
-- Do not send secrets to `/run` or log sensitive values.
+Install dependencies
+pnpm install
 
----
+First time fix for web config newlines
+If you see an error about “Invalid or unexpected token” in next.config.js, your file has literal \n characters. Replace both files exactly as below.
 
-## Troubleshooting
-- If `pnpm` is not installed:  
-  - Use Corepack: `corepack enable && corepack prepare pnpm@latest --activate`  
-  - Or: `npm install -g pnpm --location=global`  
-- Port conflicts: change `PORT` or kill the process occupying the port.
-- If the browser cannot reach the API, ensure `NEXT_PUBLIC_API_BASE` matches the API port.
+1. apps/web/next.config.js
+   cat > apps/web/next.config.js <<'EOF'
+   /** @type {import('next').NextConfig} */
+   const nextConfig = {};
+   module.exports = nextConfig;
+   EOF
+2. apps/web/next-env.d.ts
+   cat > apps/web/next-env.d.ts <<'EOF'
+   /// <reference types="next" />
+   /// <reference types="next/image-types/global" />
+   EOF
 
-Happy coding!
-# coding-question-generator
+First time build of the shared package
+The API imports @cs/shared. Build it once so the dist exists.
+pnpm --filter @cs/shared build
+
+Run the API alone to verify
+pnpm --filter @cs/api dev
+you should see: API listening on [http://localhost:4010](http://localhost:4010)
+stop with Ctrl+C
+
+Run the full stack
+pnpm dev
+web at [http://localhost:3000](http://localhost:3000)
+api at [http://localhost:4010](http://localhost:4010)
+
+Using the app
+
+* open [http://localhost:3000](http://localhost:3000)
+* pick a language
+* click Generate or Refresh
+* review the problem and multiple solutions side by side
+* for JavaScript or TypeScript click Run to execute the solution on sample input and see output
+* history persists in your browser; click View in history to reopen any item
+
+Ports and configuration
+
+* API port is taken from PORT in .env
+* web uses NEXT_PUBLIC_API_BASE to call the API
+* if you change PORT, also change apps/web/.env.local to match
+  echo "NEXT_PUBLIC_API_BASE=[http://localhost:4015](http://localhost:4015)" > apps/web/.env.local
+
+Optional Amazon Web Services notes (not required to run locally)
+
+* later, if you want server side history persistence, create a DynamoDB table with partition key userId and sort key createdAt
+* set AWS_REGION and DDB_TABLE in .env
+* extend the API to write and read history from DynamoDB; the current project is structured to make that addition straightforward
+
+Security model for local run
+
+* the /run endpoint executes JavaScript and TypeScript in a vm2 sandbox with one second timeout, no file or network access, and no external requires
+* inputs are validated with Zod
+* do not send secrets to /run and do not log sensitive data
+
+Troubleshooting quick checks
+
+1. pnpm not found
+   corepack enable && corepack prepare pnpm@latest --activate
+   or npm install -g pnpm --location=global
+
+2. back end not running or vm2 errors
+   use Node 20 LTS
+   nvm use 20
+
+3. cannot import @cs/shared
+   build it once
+   pnpm --filter @cs/shared build
+
+4. web fails with SyntaxError in next.config.js
+   replace apps/web/next.config.js and apps/web/next-env.d.ts as shown above
+
+5. port already in use
+   change PORT in .env and update apps/web/.env.local to match
+
+6. run output missing
+   only JavaScript and TypeScript solutions are executable in this starter. Python and Java are shown but not executed to keep the local setup simple.
+
+Scripts reference
+
+* root
+  pnpm dev        run api and web in parallel
+  pnpm build      build all workspace packages
+  pnpm -r typecheck
+
+* api only
+  pnpm --filter @cs/api dev
+
+* shared only
+  pnpm --filter @cs/shared build
+
+What to extend next
+
+* enrich the question library with more small, runnable samples
+* add difficulty levels and tags with filtering
+* persist server side history with DynamoDB and a simple user identifier
+* add basic authentication with JSON Web Token and rate limiting on the API
+* export a question and its solutions to markdown or portable document format for interview prep
