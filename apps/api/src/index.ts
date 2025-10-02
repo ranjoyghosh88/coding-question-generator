@@ -9,7 +9,13 @@ import { NodeVM } from 'vm2';
 
 const app = express();
 app.use(express.json({ limit: '200kb' }));
-app.use(cors({ origin: '*' }));
+app.use(cors({
+  origin: (origin, cb) => cb(null, true), // reflect any origin for local dev
+  methods: ['GET','POST','OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+  credentials: false,
+  maxAge: 86400
+}));
 app.use(helmet());
 app.use(morgan('tiny'));
 
