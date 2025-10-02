@@ -151,3 +151,63 @@ What to extend next
 * persist server side history with DynamoDB and a simple user identifier
 * add basic authentication with JSON Web Token and rate limiting on the API
 * export a question and its solutions to markdown or portable document format for interview prep
+
+
+use Node twenty long term support
+vm2 does not play nicely with Node twenty two. Switch to Node twenty and retry.
+
+nvm install 20
+nvm use 20
+node -v   # should show v20.x
+
+
+build the shared package before starting the api
+The api imports @cs/shared, but its dist is not built yet.
+
+cd code-sample-gen-local
+pnpm --filter @cs/shared build
+pnpm --filter @cs/api dev
+
+
+You should see “API listening on http://localhost:4010”
+.
+
+If you want one command forever, add a dev script to @cs/shared so it auto builds while you code.
+
+Run these patches:
+
+# add a dev script to @cs/shared
+jq '.scripts.dev="tsc -w -p tsconfig.json"' packages/shared/package.json > /tmp/pkg && mv /tmp/pkg packages/shared/package.json
+
+# make root dev run shared, api and web together
+jq '.scripts.dev="pnpm -r --parallel dev"' package.json > /tmp/root && mv /tmp/root package.json
+
+
+Then:
+
+pnpm install
+pnpm dev
+
+
+Still not starting
+
+port already used
+Change the api port:
+
+echo "PORT=4015" >> .env
+echo "NEXT_PUBLIC_API_BASE=http://localhost:4015" > apps/web/.env.local
+pnpm dev
+
+
+module resolution complaint about @cs/shared
+Point the package to its source during dev:
+
+# temporary dev-only tweak
+jq '.main="src/index.ts" | .types="src/index.ts"' packages/shared/package.json > /tmp/pkg && mv /tmp/pkg packages/shared/package.json
+pnpm dev
+
+
+show me the exact api error text
+If it still fails, run:
+
+pnpm --filter @cs/api dev

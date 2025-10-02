@@ -15,7 +15,7 @@ app.use(morgan('tiny'));
 
 const PORT = Number(process.env.PORT || 4010);
 
-app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/health', (_req, res) => res.json({ ok: true, node: process.version }));
 
 app.get('/languages', (_req, res) => res.json({ languages: SupportedLanguage.options }));
 
@@ -37,7 +37,7 @@ app.post('/generate', (req, res) => {
   return res.json(one);
 });
 
-// Execute runnable JavaScript or TypeScript
+// Execute runnable JavaScript or TypeScript without fragile template strings
 const RunBody = z.object({
   code: z.string(),
   language: z.enum(['javascript','typescript']),
@@ -61,29 +61,33 @@ app.post('/run', async (req, res) => {
 
     let userCode = code;
     if (language === 'typescript') {
+      // naive strip of type annotations and interfaces for quick local runs
       userCode = code
         .replace(/: *[A-Za-z_\\[\\]\\<\\>\\|\\?\\s,]+/g, '')
         .replace(/interface [\\s\\S]*?\\{[\\s\\S]*?\\}/g, '');
     }
 
-    const wrapper = `
-      const globalOut = [];
-      const console = { log: (...args) => globalOut.push(args.join(' ')) };
-      ${userCode}
-      module.exports = async function(runInput){
-        const { nums, target, s, call } = runInput || {};
-        // eslint-disable-next-line no-eval
-        const result = eval(call);
-        return { result, logs: globalOut };
-      };
-    `;
+    const wrapper = [
+      'const globalOut = [];',
+      'const console = { log: (...args) => globalOut.push(args.join(" ")) };',
+      userCode,
+      'module.exports = async function(runInput){',
+      '  const { nums, target, s, call } = runInput || {};',
+      '  // eslint-disable-next-line no-eval',
+      '  const result = eval(call);',
+      '  return { result, logs: globalOut };',
+      '};'
+    ].join('\\n');
 
     const runner = vm.run(wrapper, 'sandbox.js');
     const output = await runner(runnerInput);
     res.json({ ok: true, output });
   } catch (e: any) {
-    res.status(400).json({ ok: false, error: String(e.message || e) });
+    res.status(400).json({ ok: false, error: String(e?.message || e) });
   }
 });
 
-app.listen(PORT, () => console.log(`API listening on http://
+app.listen(PORT, () => {
+  // eslint-disable-next-line no-console
+  console.log(`[api] listening on http://localhost:${PORT} (node ${process.version})`);
+});
